@@ -1,0 +1,1011 @@
+:root {
+  --black: #07060c;
+  --black-soft: #0d0b14;
+
+  --purple: #7b2cff;
+  --violet: #a855f7;
+  --blue: #3f7cff;
+  --red: #e63946;
+
+  --white: #f4f1f8;
+  --gray: #9891a5;
+  --gray-dark: #514b5f;
+
+  --panel: #12101b;
+  --panel-light: #191524;
+
+  --border: #302a45;
+}
+
+
+* {
+  box-sizing: border-box;
+}
+
+
+html {
+  scroll-behavior: smooth;
+}
+
+
+body {
+  margin: 0;
+
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      rgba(123, 44, 255, 0.18),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 90% 0%,
+      rgba(63, 124, 255, 0.15),
+      transparent 30%
+    ),
+    var(--black);
+
+  color: var(--white);
+
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+
+button {
+  cursor: pointer;
+}
+
+
+/* ============================================================
+   APPLICATION
+   ============================================================ */
+
+.application {
+  display: grid;
+
+  grid-template-columns:
+    250px
+    minmax(0, 1fr);
+
+  min-height: 100vh;
+}
+
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+.sidebar {
+  position: sticky;
+
+  top: 0;
+
+  height: 100vh;
+
+  padding: 24px 15px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(12, 10, 18, 0.98),
+      rgba(7, 6, 12, 0.98)
+    );
+
+  border-right:
+    1px solid
+    var(--border);
+}
+
+
+.brand {
+  padding:
+    4px
+    10px
+    25px;
+}
+
+
+.brand-name {
+  font-size: 31px;
+
+  font-weight: 950;
+
+  letter-spacing: 7px;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--purple),
+      var(--violet),
+      var(--blue)
+    );
+
+  -webkit-background-clip: text;
+
+  background-clip: text;
+
+  color: transparent;
+}
+
+
+.brand-subtitle {
+  margin-top: 3px;
+
+  font-size: 8px;
+
+  letter-spacing: 2px;
+
+  color: #777181;
+}
+
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+
+.navigation {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+
+.nav-item {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 13px;
+
+  padding:
+    12px
+    11px;
+
+  border: 0;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: var(--gray);
+
+  text-align: left;
+
+  transition:
+    background 0.2s,
+    color 0.2s,
+    transform 0.2s;
+}
+
+
+.nav-item:hover {
+  background:
+    rgba(123, 44, 255, 0.09);
+
+  color: var(--white);
+
+  transform:
+    translateX(2px);
+}
+
+
+.nav-item.active {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(123, 44, 255, 0.19),
+      rgba(63, 124, 255, 0.05)
+    );
+
+  color: white;
+
+  box-shadow:
+    inset 2px 0 0 var(--purple);
+}
+
+
+.nav-icon {
+  width: 20px;
+
+  text-align: center;
+
+  color: var(--violet);
+}
+
+
+/* ============================================================
+   ACCOUNT
+   ============================================================ */
+
+.account-panel {
+  position: absolute;
+
+  left: 15px;
+
+  right: 15px;
+
+  bottom: 18px;
+
+  padding: 14px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #161320,
+      #0d0c13
+    );
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius: 9px;
+}
+
+
+.account-name {
+  font-weight: 700;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+
+.account-level {
+  margin-top: 4px;
+
+  color: var(--gray);
+
+  font-size: 10px;
+
+  letter-spacing: 1.5px;
+}
+
+
+.account-signout {
+  margin-top: 13px;
+
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+
+  color: #aaa;
+
+  font-size: 12px;
+}
+
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+
+.main {
+  min-width: 0;
+}
+
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+
+.topbar {
+  position: sticky;
+
+  top: 0;
+
+  z-index: 10;
+
+  height: 67px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 20px;
+
+  padding:
+    0
+    34px;
+
+  background:
+    rgba(7, 6, 12, 0.88);
+
+  border-bottom:
+    1px solid
+    var(--border);
+
+  backdrop-filter:
+    blur(14px);
+}
+
+
+.current-section {
+  font-size: 11px;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+
+.search {
+  width:
+    min(420px, 45vw);
+
+  margin-left: auto;
+
+  padding:
+    10px
+    13px;
+
+  background:
+    var(--panel);
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius: 7px;
+
+  color: white;
+
+  outline: none;
+}
+
+
+.search:focus {
+  border-color:
+    var(--purple);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(123, 44, 255, 0.1);
+}
+
+
+.connection-status {
+  font-size: 9px;
+
+  font-weight: 700;
+
+  letter-spacing: 1px;
+}
+
+
+.connection-status.connected {
+  color: #35d38a;
+}
+
+
+.connection-status.offline {
+  color: #e6a23c;
+}
+
+
+/* ============================================================
+   CONTENT
+   ============================================================ */
+
+.content {
+  max-width: 1450px;
+
+  margin: auto;
+
+  padding:
+    35px
+    38px
+    70px;
+}
+
+
+/* ============================================================
+   HERO
+   ============================================================ */
+
+.hero {
+  padding:
+    55px
+    0
+    65px;
+}
+
+
+.hero.compact {
+  padding-bottom: 35px;
+}
+
+
+.eyebrow {
+  color: var(--violet);
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 3px;
+}
+
+
+.hero h1 {
+  margin:
+    16px
+    0
+    22px;
+
+  font-size:
+    clamp(
+      50px,
+      8vw,
+      96px
+    );
+
+  line-height: 0.86;
+
+  letter-spacing: -6px;
+
+  background:
+    linear-gradient(
+      120deg,
+      white 5%,
+      var(--violet) 55%,
+      var(--blue)
+    );
+
+  -webkit-background-clip: text;
+
+  background-clip: text;
+
+  color: transparent;
+}
+
+
+.hero p {
+  max-width: 720px;
+
+  margin-bottom: 28px;
+
+  color: var(--gray);
+
+  font-size: 16px;
+
+  line-height: 1.75;
+}
+
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.primary-button {
+  padding:
+    12px
+    19px;
+
+  border: 0;
+
+  border-radius: 7px;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--purple),
+      var(--blue)
+    );
+
+  color: white;
+
+  font-weight: 800;
+
+  box-shadow:
+    0 8px 25px
+    rgba(123, 44, 255, 0.18);
+
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+
+.primary-button:hover {
+  transform:
+    translateY(-2px);
+
+  box-shadow:
+    0 12px 30px
+    rgba(123, 44, 255, 0.3);
+}
+
+
+.primary-button.full {
+  width: 100%;
+}
+
+
+/* ============================================================
+   SECTION
+   ============================================================ */
+
+.section-title {
+  margin-bottom: 15px;
+
+  color: var(--gray);
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 3px;
+}
+
+
+.page-heading {
+  padding:
+    25px
+    0
+    30px;
+}
+
+
+.page-heading h2 {
+  margin:
+    10px
+    0
+    0;
+
+  font-size: 38px;
+
+  text-transform: capitalize;
+}
+
+
+/* ============================================================
+   RECORD GRID
+   ============================================================ */
+
+.record-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  gap: 15px;
+}
+
+
+.record-card {
+  min-height: 175px;
+
+  padding: 21px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #161320,
+      #0d0c13
+    );
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius: 9px;
+
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+
+.record-card:hover {
+  transform:
+    translateY(-3px);
+
+  border-color:
+    rgba(168, 85, 247, 0.55);
+
+  box-shadow:
+    0 15px 35px
+    rgba(0, 0, 0, 0.25);
+}
+
+
+.record-type {
+  color: var(--violet);
+
+  font-size: 9px;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+
+.record-card h3 {
+  margin:
+    10px
+    0
+    8px;
+
+  font-size: 18px;
+}
+
+
+.record-card p {
+  min-height: 48px;
+
+  margin: 0;
+
+  color: var(--gray);
+
+  line-height: 1.55;
+}
+
+
+.record-meta {
+  margin-top: 15px;
+
+  color: #6e6878;
+
+  font-size: 10px;
+
+  letter-spacing: 0.7px;
+}
+
+
+/* ============================================================
+   EMPTY
+   ============================================================ */
+
+.empty-state {
+  grid-column: 1 / -1;
+
+  padding:
+    55px
+    20px;
+
+  text-align: center;
+
+  background:
+    rgba(18, 16, 27, 0.7);
+
+  border:
+    1px dashed
+    var(--border);
+
+  border-radius: 10px;
+}
+
+
+.empty-icon {
+  font-size: 30px;
+
+  color: var(--violet);
+}
+
+
+.empty-state h3 {
+  margin-bottom: 5px;
+}
+
+
+.empty-state p {
+  color: var(--gray);
+}
+
+
+/* ============================================================
+   CREATOR STUDIO
+   ============================================================ */
+
+.studio-panel {
+  max-width: 760px;
+
+  padding: 25px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #151320,
+      #0e0d14
+    );
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius: 10px;
+}
+
+
+#content-form {
+  display: grid;
+
+  gap: 17px;
+}
+
+
+#content-form label {
+  display: grid;
+
+  gap: 7px;
+
+  color: #bdb7c7;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 1px;
+}
+
+
+#content-form input,
+#content-form textarea,
+#content-form select {
+  width: 100%;
+
+  padding:
+    11px
+    12px;
+
+  background:
+    #090810;
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius: 6px;
+
+  color: white;
+
+  outline: none;
+}
+
+
+#content-form textarea {
+  min-height: 135px;
+
+  resize: vertical;
+}
+
+
+#content-form input:focus,
+#content-form textarea:focus,
+#content-form select:focus {
+  border-color:
+    var(--purple);
+}
+
+
+.checkbox-label {
+  display: flex !important;
+
+  grid-template-columns:
+    auto
+    1fr;
+
+  align-items: center;
+
+  gap: 8px !important;
+}
+
+
+.checkbox-label input {
+  width: auto !important;
+}
+
+
+/* ============================================================
+   COLLABORATION
+   ============================================================ */
+
+.feature-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 15px;
+}
+
+
+.feature-card {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+  padding: 23px;
+
+  background:
+    var(--panel);
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius: 9px;
+}
+
+
+.feature-card strong {
+  color: var(--violet);
+
+  font-size: 10px;
+
+  letter-spacing: 2px;
+}
+
+
+.feature-card span {
+  color: var(--gray);
+
+  line-height: 1.5;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 950px) {
+
+  .application {
+    grid-template-columns: 1fr;
+  }
+
+
+  .sidebar {
+    position: sticky;
+
+    top: 0;
+
+    z-index: 20;
+
+    width: 100%;
+
+    height: auto;
+
+    padding: 10px;
+
+    border-right: 0;
+
+    border-bottom:
+      1px solid
+      var(--border);
+  }
+
+
+  .brand {
+    padding:
+      2px
+      8px
+      8px;
+  }
+
+
+  .brand-name {
+    font-size: 24px;
+  }
+
+
+  .brand-subtitle {
+    display: none;
+  }
+
+
+  .navigation {
+    flex-direction: row;
+
+    overflow-x: auto;
+  }
+
+
+  .nav-item {
+    width: auto;
+
+    flex-shrink: 0;
+
+    white-space: nowrap;
+  }
+
+
+  .account-panel {
+    display: none;
+  }
+
+
+  .record-grid {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+}
+
+
+@media (max-width: 600px) {
+
+  .topbar {
+    height: 60px;
+
+    padding:
+      0
+      15px;
+  }
+
+
+  .current-section {
+    display: none;
+  }
+
+
+  .search {
+    width: 60%;
+
+    margin-left: 0;
+  }
+
+
+  .connection-status {
+    display: none;
+  }
+
+
+  .content {
+    padding:
+      18px
+      16px
+      50px;
+  }
+
+
+  .hero {
+    padding:
+      35px
+      0
+      40px;
+  }
+
+
+  .hero h1 {
+    font-size: 53px;
+
+    letter-spacing: -4px;
+  }
+
+
+  .hero p {
+    font-size: 14px;
+  }
+
+
+  .record-grid,
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+  }
