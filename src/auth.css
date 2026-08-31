@@ -1,0 +1,523 @@
+/* ============================================================
+   MUSH AUTHENTICATION
+   ============================================================ */
+
+:root {
+
+  --mush-purple: #7b2cff;
+  --mush-violet: #a855f7;
+  --mush-blue: #3f7cff;
+
+  --mush-red: #e63946;
+
+  --mush-black: #07060c;
+  --mush-panel: #12101b;
+
+  --mush-border: #302a45;
+
+  --mush-gray: #9891a5;
+
+}
+
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+
+#mush-auth-modal {
+
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 99999;
+
+  display: none;
+
+}
+
+
+#mush-auth-modal.open {
+
+  display: block;
+
+}
+
+
+/* ============================================================
+   BACKDROP
+   ============================================================ */
+
+.mush-auth-backdrop {
+
+  position: absolute;
+
+  inset: 0;
+
+  background: rgba(0, 0, 0, 0.78);
+
+  backdrop-filter: blur(12px);
+
+}
+
+
+/* ============================================================
+   CARD
+   ============================================================ */
+
+.mush-auth-card {
+
+  position: absolute;
+
+  left: 50%;
+
+  top: 50%;
+
+  width: min(92vw, 470px);
+
+  max-height: 92vh;
+
+  overflow-y: auto;
+
+  transform:
+    translate(-50%, -50%);
+
+  padding: 34px;
+
+  border:
+
+    1px solid
+
+    var(--mush-border);
+
+  border-radius: 18px;
+
+  background:
+
+    radial-gradient(
+
+      circle at 10% 0%,
+
+      rgba(123, 44, 255, .22),
+
+      transparent 38%
+
+    ),
+
+    radial-gradient(
+
+      circle at 90% 0%,
+
+      rgba(63, 124, 255, .18),
+
+      transparent 36%
+
+    ),
+
+    var(--mush-panel);
+
+  color: #f4f1f8;
+
+  box-shadow:
+
+    0 30px 90px
+
+    rgba(0, 0, 0, .55);
+
+}
+
+
+/* ============================================================
+   CLOSE
+   ============================================================ */
+
+.mush-auth-close {
+
+  position: absolute;
+
+  top: 13px;
+
+  right: 16px;
+
+  border: 0;
+
+  background: transparent;
+
+  color: var(--mush-gray);
+
+  font-size: 30px;
+
+  cursor: pointer;
+
+}
+
+
+.mush-auth-close:hover {
+
+  color: white;
+
+}
+
+
+/* ============================================================
+   BRAND
+   ============================================================ */
+
+.mush-auth-brand {
+
+  font-size: 40px;
+
+  font-weight: 950;
+
+  letter-spacing: 7px;
+
+  background:
+
+    linear-gradient(
+
+      90deg,
+
+      var(--mush-purple),
+
+      var(--mush-violet),
+
+      var(--mush-blue)
+
+    );
+
+  -webkit-background-clip: text;
+
+  background-clip: text;
+
+  color: transparent;
+
+}
+
+
+.mush-auth-kicker {
+
+  margin-top: 3px;
+
+  color: var(--mush-gray);
+
+  font-size: 9px;
+
+  letter-spacing: 2px;
+
+}
+
+
+/* ============================================================
+   HEADINGS
+   ============================================================ */
+
+.mush-auth-card h2 {
+
+  margin:
+
+    25px 0 8px;
+
+  font-size: 34px;
+
+}
+
+
+.mush-auth-intro {
+
+  color: var(--mush-gray);
+
+  line-height: 1.6;
+
+}
+
+
+/* ============================================================
+   TABS
+   ============================================================ */
+
+.mush-auth-tabs {
+
+  display: grid;
+
+  grid-template-columns:
+
+    1fr 1fr;
+
+  gap: 5px;
+
+  margin: 22px 0;
+
+  padding: 4px;
+
+  border:
+
+    1px solid
+
+    var(--mush-border);
+
+  border-radius: 9px;
+
+}
+
+
+.mush-auth-tabs button {
+
+  padding: 10px;
+
+  border: 0;
+
+  border-radius: 6px;
+
+  background: transparent;
+
+  color: var(--mush-gray);
+
+  font-weight: 800;
+
+  letter-spacing: 1px;
+
+  cursor: pointer;
+
+}
+
+
+.mush-auth-tabs button.active {
+
+  background:
+
+    linear-gradient(
+
+      90deg,
+
+      var(--mush-purple),
+
+      var(--mush-blue)
+
+    );
+
+  color: white;
+
+}
+
+
+/* ============================================================
+   FORM
+   ============================================================ */
+
+#mush-auth-form {
+
+  display: grid;
+
+  gap: 14px;
+
+}
+
+
+#mush-auth-form label {
+
+  display: grid;
+
+  gap: 7px;
+
+  color: #bdb7c7;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 1px;
+
+}
+
+
+#mush-auth-form input {
+
+  box-sizing: border-box;
+
+  width: 100%;
+
+  padding: 13px;
+
+  border:
+
+    1px solid
+
+    var(--mush-border);
+
+  border-radius: 7px;
+
+  outline: none;
+
+  background: #090810;
+
+  color: white;
+
+  font-size: 14px;
+
+}
+
+
+#mush-auth-form input:focus {
+
+  border-color:
+
+    var(--mush-purple);
+
+  box-shadow:
+
+    0 0 0 3px
+
+    rgba(123, 44, 255, .12);
+
+}
+
+
+/* ============================================================
+   SUBMIT
+   ============================================================ */
+
+.mush-auth-submit {
+
+  margin-top: 4px;
+
+  padding: 14px 18px;
+
+  border: 0;
+
+  border-radius: 7px;
+
+  background:
+
+    linear-gradient(
+
+      90deg,
+
+      var(--mush-purple),
+
+      var(--mush-blue)
+
+    );
+
+  color: white;
+
+  font-weight: 900;
+
+  cursor: pointer;
+
+  transition:
+
+    transform .15s ease,
+
+    opacity .15s ease;
+
+}
+
+
+.mush-auth-submit:hover {
+
+  transform: translateY(-1px);
+
+}
+
+
+.mush-auth-submit:disabled {
+
+  opacity: .6;
+
+  cursor: wait;
+
+}
+
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+.mush-auth-status {
+
+  min-height: 20px;
+
+  font-size: 12px;
+
+  line-height: 1.45;
+
+}
+
+
+.mush-auth-status.success {
+
+  color: #67e8a5;
+
+}
+
+
+.mush-auth-status.error {
+
+  color: #ff7d8a;
+
+}
+
+
+/* ============================================================
+   LEVEL INDICATORS
+   ============================================================ */
+
+.mush-auth-levels {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 7px;
+
+  margin-top: 22px;
+
+}
+
+
+.mush-auth-levels span {
+
+  padding: 6px 8px;
+
+  border:
+
+    1px solid
+
+    var(--mush-border);
+
+  border-radius: 5px;
+
+  color: #777181;
+
+  font-size: 8px;
+
+  letter-spacing: .8px;
+
+}
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 560px) {
+
+  .mush-auth-card {
+
+    padding: 27px 20px;
+
+  }
+
+  .mush-auth-card h2 {
+
+    font-size: 28px;
+
+  }
+
+  .mush-auth-brand {
+
+    font-size: 34px;
+
+  }
+
+  }
