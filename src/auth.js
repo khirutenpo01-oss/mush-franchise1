@@ -1,341 +1,526 @@
-import { createClient } from "@supabase/supabase-js";
-import "./auth.css";
+import { supabase } from "./supabase.js";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+/*
+============================================================
+HALO IDENTITY / MUSH AUTHENTICATION
+============================================================
 
-const supabase =
-  SUPABASE_URL && SUPABASE_ANON_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+MUSH is an application inside the future Halo ecosystem.
 
-let mode = "signup";
-let modal = null;
+This module handles:
+- Sign up
+- Sign in
+- Sign out
+- Email verification
+- Password reset
+- Returning users to the page they requested
+============================================================
+*/
 
-/* ============================================================
+
+const authContainer =
+  document.getElementById("auth-container");
+
+
+/* ==========================================================
    AUTH MODAL
-   ============================================================ */
+========================================================== */
 
 function createAuthModal() {
-  if (modal) return modal;
 
-  modal = document.createElement("div");
-  modal.id = "mush-auth-modal";
+  if (document.getElementById("halo-auth-modal")) {
+    return;
+  }
+
+  const modal =
+    document.createElement("div");
+
+  modal.id =
+    "halo-auth-modal";
 
   modal.innerHTML = `
-    <div class="mush-auth-backdrop" data-close-auth></div>
+    <div class="auth-overlay">
 
-    <section class="mush-auth-card" role="dialog" aria-modal="true">
-
-      <button
-        class="mush-auth-close"
-        type="button"
-        data-close-auth
-        aria-label="Close"
-      >
-        ×
-      </button>
-
-      <div class="mush-auth-brand">
-        MUSH
-      </div>
-
-      <div class="mush-auth-kicker">
-        MADE UP SUPS & HEROES
-      </div>
-
-      <h2 id="mush-auth-title">
-        Enter the MUSH.
-      </h2>
-
-      <p id="mush-auth-intro" class="mush-auth-intro">
-        Create your account and begin your journey through MUSH.
-      </p>
-
-      <div class="mush-auth-tabs">
+      <div class="auth-modal">
 
         <button
-          type="button"
-          data-mode="signup"
+          class="auth-close"
+          id="auth-close"
+          aria-label="Close"
         >
-          JOIN MUSH
+          ×
         </button>
 
-        <button
-          type="button"
-          data-mode="signin"
-        >
-          SIGN IN
-        </button>
+        <div class="auth-brand">
 
-      </div>
+          <div class="halo-mark">
+            H
+          </div>
 
-      <form id="mush-auth-form">
+          <div>
+            <strong>
+              HALO
+            </strong>
 
-        <div id="mush-username-wrap">
-
-          <label>
-            USERNAME
-
-            <input
-              name="username"
-              autocomplete="username"
-              maxlength="32"
-              placeholder="Your MUSH name"
-            />
-
-          </label>
+            <small>
+              ONE IDENTITY · MANY WORLDS
+            </small>
+          </div>
 
         </div>
 
-        <label>
-          EMAIL
 
-          <input
-            name="email"
-            type="email"
-            autocomplete="email"
-            required
-            placeholder="you@example.com"
-          />
+        <div class="auth-heading">
 
-        </label>
+          <span>
+            MUSH
+          </span>
 
-        <label>
-          PASSWORD
+          <h2 id="auth-title">
+            Join MUSH
+          </h2>
 
-          <input
-            name="password"
-            type="password"
-            autocomplete="new-password"
-            minlength="6"
-            required
-            placeholder="At least 6 characters"
-          />
+          <p id="auth-description">
+            Create your Halo account to enter MUSH.
+          </p>
 
-        </label>
+        </div>
+
+
+        <form id="auth-form">
+
+          <div
+            id="username-field"
+            class="auth-field"
+          >
+
+            <label>
+              Username
+            </label>
+
+            <input
+              id="auth-username"
+              type="text"
+              minlength="3"
+              maxlength="30"
+              autocomplete="username"
+              placeholder="Choose your username"
+            />
+
+          </div>
+
+
+          <div class="auth-field">
+
+            <label>
+              Email
+            </label>
+
+            <input
+              id="auth-email"
+              type="email"
+              required
+              autocomplete="email"
+              placeholder="you@example.com"
+            />
+
+          </div>
+
+
+          <div class="auth-field">
+
+            <label>
+              Password
+            </label>
+
+            <input
+              id="auth-password"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="current-password"
+              placeholder="At least 8 characters"
+            />
+
+          </div>
+
+
+          <div
+            id="confirm-password-field"
+            class="auth-field"
+          >
+
+            <label>
+              Confirm password
+            </label>
+
+            <input
+              id="auth-confirm-password"
+              type="password"
+              minlength="8"
+              autocomplete="new-password"
+              placeholder="Enter your password again"
+            />
+
+          </div>
+
+
+          <div
+            id="auth-message"
+            class="auth-message"
+          ></div>
+
+
+          <button
+            type="submit"
+            class="auth-submit"
+            id="auth-submit"
+          >
+            Create Halo Account
+          </button>
+
+        </form>
+
+
+        <div class="auth-switch">
+
+          <span id="auth-switch-text">
+            Already have a Halo account?
+          </span>
+
+          <button
+            id="auth-switch"
+            type="button"
+          >
+            Sign in
+          </button>
+
+        </div>
+
 
         <button
-          class="mush-auth-submit"
-          type="submit"
-          id="mush-auth-submit"
+          id="forgot-password"
+          class="forgot-password"
+          type="button"
         >
-          Create my MUSH account
+          Forgot password?
         </button>
-
-        <div
-          class="mush-auth-status"
-          id="mush-auth-status"
-          aria-live="polite"
-        ></div>
-
-      </form>
-
-      <div class="mush-auth-levels">
-
-        <span>
-          LEVEL 1 · EXPLORE
-        </span>
-
-        <span>
-          LEVEL 2 · CREATE
-        </span>
-
-        <span>
-          LEVEL 3+ · REALITIES
-        </span>
 
       </div>
 
-    </section>
+    </div>
   `;
 
   document.body.appendChild(modal);
 
-  /* Close / tab controls */
-
-  modal.addEventListener("click", (event) => {
-
-    const modeButton = event.target.closest("[data-mode]");
-
-    if (modeButton) {
-
-      mode = modeButton.dataset.mode;
-
-      updateAuthModal();
-
-      return;
-    }
-
-    if (event.target.closest("[data-close-auth]")) {
-
-      closeAuth();
-
-    }
-
-  });
-
-  /* Form */
-
-  modal
-    .querySelector("#mush-auth-form")
-    .addEventListener("submit", submitAuthentication);
-
-  return modal;
+  attachAuthEvents();
 }
 
 
-/* ============================================================
-   MODAL STATE
-   ============================================================ */
+/* ==========================================================
+   AUTH MODE
+========================================================== */
 
-function updateAuthModal() {
+let authMode = "signup";
 
-  createAuthModal();
 
-  const signup = mode === "signup";
+function setAuthMode(mode) {
 
-  modal.querySelector("#mush-auth-title").textContent =
-    signup
-      ? "Enter the MUSH."
-      : "Welcome back.";
+  authMode = mode;
 
-  modal.querySelector("#mush-auth-intro").textContent =
-    signup
-      ? "Create your account and begin at Level 1. Explore the archive and read five published works to unlock Level 2."
-      : "Sign in to continue exploring your worlds, characters, stories and canon.";
+  const title =
+    document.getElementById(
+      "auth-title"
+    );
 
-  modal.querySelector("#mush-username-wrap").style.display =
-    signup
-      ? "block"
-      : "none";
+  const description =
+    document.getElementById(
+      "auth-description"
+    );
 
-  modal.querySelector("#mush-auth-submit").textContent =
-    signup
-      ? "Create my MUSH account"
-      : "Enter MUSH";
+  const usernameField =
+    document.getElementById(
+      "username-field"
+    );
 
-  modal
-    .querySelectorAll("[data-mode]")
-    .forEach((button) => {
+  const confirmField =
+    document.getElementById(
+      "confirm-password-field"
+    );
 
-      button.classList.toggle(
-        "active",
-        button.dataset.mode === mode
-      );
+  const submit =
+    document.getElementById(
+      "auth-submit"
+    );
 
-    });
+  const switchText =
+    document.getElementById(
+      "auth-switch-text"
+    );
 
-  modal.querySelector("#mush-auth-status").textContent = "";
+  const switchButton =
+    document.getElementById(
+      "auth-switch"
+    );
+
+  const forgot =
+    document.getElementById(
+      "forgot-password"
+    );
+
+
+  clearMessage();
+
+
+  if (mode === "signup") {
+
+    title.textContent =
+      "Join MUSH";
+
+    description.textContent =
+      "Create your Halo account to enter MUSH.";
+
+    usernameField.style.display =
+      "block";
+
+    confirmField.style.display =
+      "block";
+
+    submit.textContent =
+      "Create Halo Account";
+
+    switchText.textContent =
+      "Already have a Halo account?";
+
+    switchButton.textContent =
+      "Sign in";
+
+    forgot.style.display =
+      "none";
+
+  } else {
+
+    title.textContent =
+      "Welcome back";
+
+    description.textContent =
+      "Sign in to continue your MUSH journey.";
+
+    usernameField.style.display =
+      "none";
+
+    confirmField.style.display =
+      "none";
+
+    submit.textContent =
+      "Sign in to MUSH";
+
+    switchText.textContent =
+      "New to Halo?";
+
+    switchButton.textContent =
+      "Create account";
+
+    forgot.style.display =
+      "block";
+  }
 }
 
 
-/* ============================================================
+/* ==========================================================
    OPEN / CLOSE
-   ============================================================ */
+========================================================== */
 
-function openAuth(nextMode = "signup") {
-
-  mode = nextMode;
+function openAuth(mode = "signup") {
 
   createAuthModal();
 
-  updateAuthModal();
+  const modal =
+    document.getElementById(
+      "halo-auth-modal"
+    );
 
-  modal.classList.add("open");
+  modal.classList.add("visible");
 
-  setTimeout(() => {
+  setAuthMode(mode);
 
-    const input =
-      mode === "signup"
-        ? modal.querySelector('input[name="username"]')
-        : modal.querySelector('input[name="email"]');
-
-    input?.focus();
-
-  }, 50);
+  document
+    .getElementById("auth-email")
+    ?.focus();
 }
 
 
 function closeAuth() {
 
+  const modal =
+    document.getElementById(
+      "halo-auth-modal"
+    );
+
   if (modal) {
-
-    modal.classList.remove("open");
-
+    modal.classList.remove(
+      "visible"
+    );
   }
+}
+
+
+/* ==========================================================
+   EVENTS
+========================================================== */
+
+function attachAuthEvents() {
+
+  document
+    .getElementById("auth-close")
+    .addEventListener(
+      "click",
+      closeAuth
+    );
+
+
+  document
+    .getElementById("auth-switch")
+    .addEventListener(
+      "click",
+      () => {
+
+        setAuthMode(
+          authMode === "signup"
+            ? "signin"
+            : "signup"
+        );
+
+      }
+    );
+
+
+  document
+    .getElementById("auth-form")
+    .addEventListener(
+      "submit",
+      handleAuthSubmit
+    );
+
+
+  document
+    .getElementById("forgot-password")
+    .addEventListener(
+      "click",
+      handlePasswordReset
+    );
+
+
+  document
+    .querySelector(
+      ".auth-overlay"
+    )
+    .addEventListener(
+      "click",
+      event => {
+
+        if (
+          event.target.classList.contains(
+            "auth-overlay"
+          )
+        ) {
+          closeAuth();
+        }
+
+      }
+    );
 
 }
 
 
-/* ============================================================
-   STATUS
-   ============================================================ */
+/* ==========================================================
+   SUBMIT
+========================================================== */
 
-function showStatus(message, error = false) {
-
-  const status =
-    modal.querySelector("#mush-auth-status");
-
-  status.textContent = message;
-
-  status.className =
-    `mush-auth-status ${error ? "error" : "success"}`;
-}
-
-
-/* ============================================================
-   SIGN UP / SIGN IN
-   ============================================================ */
-
-async function submitAuthentication(event) {
+async function handleAuthSubmit(event) {
 
   event.preventDefault();
 
   if (!supabase) {
 
-    showStatus(
-      "Supabase is not connected. Check the Netlify environment variables.",
-      true
+    showMessage(
+      "Authentication is not configured yet.",
+      "error"
     );
 
     return;
   }
 
-  const form =
-    new FormData(event.currentTarget);
 
   const email =
-    String(form.get("email") || "").trim();
+    document
+      .getElementById(
+        "auth-email"
+      )
+      .value
+      .trim();
+
 
   const password =
-    String(form.get("password") || "");
+    document
+      .getElementById(
+        "auth-password"
+      )
+      .value;
+
 
   const username =
-    String(form.get("username") || "").trim();
+    document
+      .getElementById(
+        "auth-username"
+      )
+      .value
+      .trim();
 
-  const submit =
-    modal.querySelector("#mush-auth-submit");
 
-  submit.disabled = true;
+  setLoading(true);
+
 
   try {
 
-    /* =========================
-       SIGN UP
-       ========================= */
+    if (authMode === "signup") {
 
-    if (mode === "signup") {
+      const confirmPassword =
+        document
+          .getElementById(
+            "auth-confirm-password"
+          )
+          .value;
 
-      if (!username) {
+
+      if (
+        !username ||
+        username.length < 3
+      ) {
 
         throw new Error(
-          "Choose a MUSH username."
+          "Choose a username with at least 3 characters."
         );
 
       }
 
-      const { data, error } =
+
+      if (
+        password !==
+        confirmPassword
+      ) {
+
+        throw new Error(
+          "Your passwords do not match."
+        );
+
+      }
+
+
+      const {
+        data,
+        error
+      } =
         await supabase.auth.signUp({
 
           email,
@@ -343,54 +528,48 @@ async function submitAuthentication(event) {
           password,
 
           options: {
-
             data: {
               username
             }
-
           }
 
         });
 
+
       if (error) {
-
         throw error;
-
       }
+
 
       /*
-       * Supabase may require email confirmation.
+       * The database trigger created earlier
+       * automatically creates the user's
+       * notification/content preference rows.
        */
 
-      if (!data.session) {
+      if (data.user) {
 
-        showStatus(
-          "Account created. Check your email to confirm your account, then sign in."
+        showMessage(
+          "Account created. Check your email to verify your Halo account.",
+          "success"
         );
 
-      } else {
-
-        showStatus(
-          "Welcome to MUSH. Your Level 1 account is ready."
+        setTimeout(
+          () => {
+            closeAuth();
+          },
+          2500
         );
-
-        setTimeout(() => {
-
-          window.location.reload();
-
-        }, 800);
 
       }
 
-    }
 
-    /* =========================
-       SIGN IN
-       ========================= */
+    } else {
 
-    else {
-
-      const { error } =
+      const {
+        data,
+        error
+      } =
         await supabase.auth.signInWithPassword({
 
           email,
@@ -399,82 +578,320 @@ async function submitAuthentication(event) {
 
         });
 
+
       if (error) {
-
         throw error;
-
       }
 
-      showStatus(
-        "Welcome back. Loading your MUSH archive..."
-      );
 
-      setTimeout(() => {
+      if (data.session) {
 
-        window.location.reload();
+        showMessage(
+          "Welcome back to MUSH.",
+          "success"
+        );
 
-      }, 700);
+        setTimeout(
+          () => {
+
+            closeAuth();
+
+            returnToRequestedPage();
+
+          },
+          700
+        );
+
+      }
 
     }
 
   } catch (error) {
 
-    showStatus(
-      error.message ||
-      "Authentication failed.",
-      true
+    showMessage(
+      friendlyAuthError(
+        error
+      ),
+      "error"
     );
 
   } finally {
 
-    submit.disabled = false;
+    setLoading(false);
 
   }
 
 }
 
 
-/* ============================================================
-   AUTH BUTTON CONNECTION
-   ============================================================ */
+/* ==========================================================
+   PASSWORD RESET
+========================================================== */
 
-/*
- * This catches the existing MUSH authentication button.
- *
- * We use capture mode so the old prompt-based handler
- * doesn't interfere with the new authentication interface.
- */
+async function handlePasswordReset() {
 
-document.addEventListener(
-  "click",
-  (event) => {
+  const email =
+    document
+      .getElementById(
+        "auth-email"
+      )
+      .value
+      .trim();
 
-    const button =
-      event.target.closest("#authenticate");
 
-    if (!button) return;
+  if (!email) {
 
-    event.preventDefault();
+    showMessage(
+      "Enter your email address first.",
+      "error"
+    );
 
-    event.stopImmediatePropagation();
+    return;
+  }
 
-    openAuth("signup");
 
-  },
-  true
+  setLoading(true);
+
+
+  try {
+
+    const {
+      error
+    } =
+      await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo:
+            `${window.location.origin}/`
+        }
+      );
+
+
+    if (error) {
+      throw error;
+    }
+
+
+    showMessage(
+      "Password reset instructions have been sent to your email.",
+      "success"
+    );
+
+  } catch (error) {
+
+    showMessage(
+      friendlyAuthError(
+        error
+      ),
+      "error"
+    );
+
+  } finally {
+
+    setLoading(false);
+
+  }
+
+}
+
+
+/* ==========================================================
+   RETURN AFTER AUTH
+========================================================== */
+
+function returnToRequestedPage() {
+
+  const destination =
+    sessionStorage.getItem(
+      "mush_redirect_after_auth"
+    );
+
+
+  sessionStorage.removeItem(
+    "mush_redirect_after_auth"
+  );
+
+
+  if (
+    destination
+  ) {
+
+    window.dispatchEvent(
+      new CustomEvent(
+        "mush:navigate",
+        {
+          detail: {
+            page: destination
+          }
+        }
+      )
+    );
+
+    return;
+  }
+
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "mush:navigate",
+      {
+        detail: {
+          page: "studio"
+        }
+      }
+    )
+  );
+
+}
+
+
+/* ==========================================================
+   UI HELPERS
+========================================================== */
+
+function setLoading(loading) {
+
+  const button =
+    document.getElementById(
+      "auth-submit"
+    );
+
+  if (!button) return;
+
+
+  button.disabled =
+    loading;
+
+  button.textContent =
+    loading
+      ? "Please wait..."
+      : authMode === "signup"
+        ? "Create Halo Account"
+        : "Sign in to MUSH";
+}
+
+
+function showMessage(
+  message,
+  type = "error"
+) {
+
+  const element =
+    document.getElementById(
+      "auth-message"
+    );
+
+  if (!element) return;
+
+  element.textContent =
+    message;
+
+  element.className =
+    `auth-message ${type}`;
+}
+
+
+function clearMessage() {
+
+  const element =
+    document.getElementById(
+      "auth-message"
+    );
+
+  if (!element) return;
+
+  element.textContent =
+    "";
+
+  element.className =
+    "auth-message";
+}
+
+
+/* ==========================================================
+   ERROR TRANSLATION
+========================================================== */
+
+function friendlyAuthError(
+  error
+) {
+
+  const message =
+    String(
+      error?.message ||
+      error ||
+      ""
+    );
+
+
+  if (
+    message
+      .toLowerCase()
+      .includes(
+        "user already registered"
+      )
+  ) {
+
+    return (
+      "An account already exists with this email. Try signing in."
+    );
+
+  }
+
+
+  if (
+    message
+      .toLowerCase()
+      .includes(
+        "invalid login credentials"
+      )
+  ) {
+
+    return (
+      "Incorrect email or password."
+    );
+
+  }
+
+
+  if (
+    message
+      .toLowerCase()
+      .includes(
+        "password should be at least"
+      )
+  ) {
+
+    return (
+      "Your password needs to be at least 8 characters."
+    );
+
+  }
+
+
+  return message ||
+    "Something went wrong. Please try again.";
+}
+
+
+/* ==========================================================
+   MUSH AUTH EVENT
+========================================================== */
+
+window.addEventListener(
+  "mush:require-auth",
+  () => {
+
+    openAuth(
+      "signup"
+    );
+
+  }
 );
 
 
-/* ============================================================
-   GLOBAL MUSH AUTH API
-   ============================================================ */
+/* ==========================================================
+   INITIALIZE
+========================================================== */
 
-window.MUSHAuth = {
-
-  open: openAuth,
-
-  signIn: () => openAuth("signin"),
-
-  close: closeAuth
-
-};
+createAuthModal();
