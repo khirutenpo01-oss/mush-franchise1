@@ -1589,6 +1589,29 @@ function escapeHTML(
 }
 
 
+function extractChapterContent(body) {
+
+  if (!body) {
+    return "";
+  }
+
+  // Current MUSH format
+  if (
+    typeof body === "object" &&
+    typeof body.html === "string"
+  ) {
+    return body.html;
+  }
+
+  // Graceful fallback for older data
+  if (
+    typeof body === "string"
+  ) {
+    return body;
+  }
+
+  return "";
+}
 function isUUID(value) {
 
   return (
