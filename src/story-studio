@@ -221,9 +221,9 @@ async function loadStory(
             `Chapter ${index + 1}`,
 
           content:
-            version.body ||
-            version.content ||
-            ""
+  extractChapterContent(
+    version.body
+  )
         })
       );
 
@@ -1136,7 +1136,7 @@ export async function saveStory() {
         studioState.chapters[i];
 
 
-      const {
+            const {
         error
       } =
         await supabase
@@ -1155,8 +1155,13 @@ export async function saveStory() {
               chapter.title ||
               `Chapter ${i + 1}`,
 
-            body:
-              chapter.content,
+            body: {
+              html:
+                chapter.content
+            },
+
+            created_by:
+              user.id,
 
             version_number:
               i + 1
@@ -1480,6 +1485,27 @@ function wordCount(text) {
 /* ==========================================================
    HELPERS
 ========================================================== */
+function extractChapterContent(body) {
+
+  if (!body) {
+    return "";
+  }
+
+  if (
+    typeof body === "object" &&
+    typeof body.html === "string"
+  ) {
+    return body.html;
+  }
+
+  if (
+    typeof body === "string"
+  ) {
+    return body;
+  }
+
+  return "";
+}
 
 function getActiveChapter() {
 
