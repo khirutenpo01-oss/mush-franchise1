@@ -1,3 +1,4 @@
+import "./styles.css";
 import { openStoryStudio } from "./story-studio.js";
 import { supabase } from "./supabase.js";
 
