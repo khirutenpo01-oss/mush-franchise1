@@ -1213,5 +1213,14 @@ function formatDate(date) {
 /* ==========================================================
    START
 ========================================================== */
+window.addEventListener(
+  "mush:navigate",
+  event => {
+    const page = event.detail?.page;
 
+    if (page) {
+      navigate(page);
+    }
+  }
+);
 init();
