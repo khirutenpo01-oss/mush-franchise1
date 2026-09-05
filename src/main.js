@@ -1139,4 +1139,79 @@ function attachEvents() {
     );
 
   if (upload) {
-    upload.
+    upload.addEventListener(
+      "click",
+      () => requireAuth("video")
+    );
+  }
+
+
+  document
+    .querySelectorAll(
+      ".notification-card.unread"
+    )
+    .forEach(card => {
+
+      card.addEventListener(
+        "click",
+        async () => {
+
+          const id =
+            card.dataset.notificationId;
+
+          await supabase
+            .from("notifications")
+            .update({
+              read_at:
+                new Date().toISOString()
+            })
+            .eq("id", id)
+            .eq(
+              "recipient_id",
+              state.user.id
+            );
+
+          await loadNotifications();
+
+          render();
+        }
+      );
+
+    });
+}
+
+
+/* ==========================================================
+   HELPERS
+========================================================== */
+
+function escapeHTML(value) {
+
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function formatDate(date) {
+
+  return new Intl.DateTimeFormat(
+    undefined,
+    {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }
+  ).format(
+    new Date(date)
+  );
+}
+
+
+/* ==========================================================
+   START
+========================================================== */
+
+init();
