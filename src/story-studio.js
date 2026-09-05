@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+I'llimport { supabase } from "./supabase.js";
 
 /*
 ============================================================
@@ -1484,27 +1484,6 @@ function wordCount(text) {
 /* ==========================================================
    HELPERS
 ========================================================== */
-function extractChapterContent(body) {
-
-  if (!body) {
-    return "";
-  }
-
-  if (
-    typeof body === "object" &&
-    typeof body.html === "string"
-  ) {
-    return body.html;
-  }
-
-  if (
-    typeof body === "string"
-  ) {
-    return body;
-  }
-
-  return "";
-}
 
 function getActiveChapter() {
 
