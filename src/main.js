@@ -574,22 +574,22 @@ function renderStudio() {
 
     <div class="studio-actions">
 
-      <button
-        class="button purple"
-        id="new-story"
-      >
-        ＋ New Story
-      </button>
+  <button
+    class="button purple"
+    id="new-story"
+  >
+    ＋ New Story
+  </button>
 
-      <button class="button secondary">
-        Drafts
-      </button>
+  <button class="button secondary">
+    Drafts
+  </button>
 
-      <button class="button secondary">
-        Published
-      </button>
+  <button class="button secondary">
+    Published
+  </button>
 
-    </div>
+</div>
 
     <div class="content-placeholder">
 
@@ -1133,6 +1133,25 @@ function attachEvents() {
     );
   }
 
+
+  const newStory =
+    document.getElementById(
+      "new-story"
+    );
+
+  if (newStory) {
+    newStory.addEventListener(
+      "click",
+      () => {
+        if (!state.user) {
+          requireAuth("studio");
+          return;
+        }
+
+        openStoryStudio();
+      }
+    );
+  }
 
   const upload =
     document.getElementById(
