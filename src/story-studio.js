@@ -928,3 +928,721 @@ function attachStudioEvents() {
 
 }
 
+/* ==========================================================
+   CHAPTERS
+========================================================== */
+
+function addChapter() {
+
+  saveActiveEditorToState();
+
+  const number =
+    studioState.chapters.length + 1;
+
+  studioState.chapters.push({
+
+    id: crypto.randomUUID(),
+
+    title:
+      `Chapter ${number}`,
+
+    content:
+      ""
+
+  });
+
+  studioState.activeChapter =
+    studioState.chapters.length - 1;
+
+  renderStudio();
+
+}
+
+
+/* ==========================================================
+   SAVE EDITOR
+========================================================== */
+
+function saveActiveEditorToState() {
+
+  const editor =
+    document.getElementById(
+      "editor"
+    );
+
+  const chapter =
+    getActiveChapter();
+
+
+  if (
+    editor &&
+    chapter
+  ) {
+
+    chapter.content =
+      editor.innerHTML;
+
+  }
+
+}
+
+
+/* ==========================================================
+   SAVE STORY
+========================================================== */
+
+export async function saveStory() {
+
+  if (
+    studioState.saving
+  ) {
+    return;
+  }
+
+
+  const {
+    data: {
+      user
+    }
+  } =
+    await supabase.auth.getUser();
+
+
+  if (!user) {
+
+    window.dispatchEvent(
+      new CustomEvent(
+        "mush:require-auth"
+      )
+    );
+
+    return;
+  }
+
+
+  saveActiveEditorToState();
+
+  studioState.saving = true;
+
+  updateSaveStatus(
+    "Saving..."
+  );
+
+
+  try {
+
+    let storyId =
+      studioState.storyId;
+
+
+    /*
+     * Create the content record
+     * if this is a new story.
+     */
+
+    if (!storyId) {
+
+      const {
+        data,
+        error
+      } =
+        await supabase
+          .from("content")
+          .insert({
+
+            title:
+              studioState.title ||
+              "Untitled Story",
+
+            description:
+              studioState.description,
+
+            creation_method:
+              studioState.creationMethod,
+
+            ai_disclosure:
+              studioState.aiDisclosure,
+
+            content_type:
+              "novel",
+
+            creator_id:
+              user.id
+
+          })
+          .select()
+          .single();
+
+
+      if (error) {
+        throw error;
+      }
+
+
+      storyId =
+        data.id;
+
+      studioState.storyId =
+        storyId;
+
+    } else {
+
+      const {
+        error
+      } =
+        await supabase
+          .from("content")
+          .update({
+
+            title:
+              studioState.title ||
+              "Untitled Story",
+
+            description:
+              studioState.description,
+
+            creation_method:
+              studioState.creationMethod,
+
+            ai_disclosure:
+              studioState.aiDisclosure
+
+          })
+          .eq(
+            "id",
+            storyId
+          );
+
+
+      if (error) {
+        throw error;
+      }
+
+    }
+
+
+    /*
+     * Save chapters.
+     */
+
+    for (
+      let i = 0;
+      i < studioState.chapters.length;
+      i++
+    ) {
+
+      const chapter =
+        studioState.chapters[i];
+
+
+            const {
+        error
+      } =
+        await supabase
+          .from("content_versions")
+          .upsert({
+
+            id:
+              isUUID(chapter.id)
+                ? chapter.id
+                : undefined,
+
+            content_id:
+              storyId,
+
+            title:
+              chapter.title ||
+              `Chapter ${i + 1}`,
+
+            body: {
+              html:
+                chapter.content
+            },
+
+            created_by:
+              user.id,
+
+            version_number:
+              i + 1
+
+          });
+
+
+      if (error) {
+        throw error;
+      }
+
+    }
+
+
+    studioState.lastSaved =
+      new Date();
+
+
+    updateSaveStatus(
+      "Saved"
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "MUSH Story Studio save error:",
+      error
+    );
+
+    updateSaveStatus(
+      "Save failed"
+    );
+
+    showStudioError(
+      error.message
+    );
+
+  } finally {
+
+    studioState.saving =
+      false;
+
+  }
+
+}
+
+
+/* ==========================================================
+   AUTOSAVE
+========================================================== */
+
+let autosaveTimer = null;
+
+
+function queueAutosave() {
+
+  clearTimeout(
+    autosaveTimer
+  );
+
+
+  updateSaveStatus(
+    "Unsaved changes"
+  );
+
+
+  autosaveTimer =
+    setTimeout(
+      () => {
+
+        saveStory();
+
+      },
+      1800
+    );
+
+}
+
+
+/* ==========================================================
+   PUBLISH
+========================================================== */
+
+async function publishStory() {
+
+  saveActiveEditorToState();
+
+
+  if (
+    !studioState.title.trim()
+  ) {
+
+    showStudioError(
+      "Give your story a title before publishing."
+    );
+
+    return;
+  }
+
+
+  if (
+    studioState.creationMethod !==
+      "human" &&
+    !studioState.aiDisclosure.trim()
+  ) {
+
+    showStudioError(
+      "Please add an AI disclosure before publishing AI-assisted or AI-generated content."
+    );
+
+    return;
+  }
+
+
+  await saveStory();
+
+
+  if (
+    !studioState.storyId
+  ) {
+    return;
+  }
+
+
+  const {
+    error
+  } =
+    await supabase
+      .from("content")
+      .update({
+        status: "published",
+        published_at:
+          new Date().toISOString()
+      })
+      .eq(
+        "id",
+        studioState.storyId
+      );
+
+
+  if (error) {
+
+    showStudioError(
+      error.message
+    );
+
+    return;
+  }
+
+
+  updateSaveStatus(
+    "Published"
+  );
+
+
+  alert(
+    "Your story has been published to MUSH."
+  );
+
+}
+
+
+/* ==========================================================
+   PREVIEW
+========================================================== */
+
+function previewStory() {
+
+  saveActiveEditorToState();
+
+
+  const chapter =
+    getActiveChapter();
+
+
+  const overlay =
+    document.createElement(
+      "div"
+    );
+
+  overlay.className =
+    "story-preview-overlay";
+
+
+  overlay.innerHTML = `
+
+    <div class="story-preview">
+
+      <button
+        class="preview-close"
+        id="preview-close"
+      >
+        ×
+      </button>
+
+
+      <div class="preview-label">
+        MUSH PREVIEW
+      </div>
+
+
+      <h1>
+        ${escapeHTML(
+          studioState.title ||
+          "Untitled Story"
+        )}
+      </h1>
+
+
+      <p class="preview-description">
+        ${escapeHTML(
+          studioState.description
+        )}
+      </p>
+
+
+      <div class="preview-divider"></div>
+
+
+      <h2>
+        ${escapeHTML(
+          chapter?.title ||
+          "Chapter 1"
+        )}
+      </h2>
+
+
+      <article class="preview-body">
+
+        ${
+          chapter?.content ||
+          "<p>Your story is empty.</p>"
+        }
+
+      </article>
+
+    </div>
+
+  `;
+
+
+  document.body.appendChild(
+    overlay
+  );
+
+
+  document
+    .getElementById(
+      "preview-close"
+    )
+    .addEventListener(
+      "click",
+      () => {
+        overlay.remove();
+      }
+    );
+
+}
+
+
+/* ==========================================================
+   WORD COUNT
+========================================================== */
+
+function updateWordCount() {
+
+  const editor =
+    document.getElementById(
+      "editor"
+    );
+
+
+  if (!editor) return;
+
+
+  const count =
+    wordCount(
+      editor.innerText
+    );
+
+
+  const main =
+    document.getElementById(
+      "word-count"
+    );
+
+  const footer =
+    document.getElementById(
+      "editor-word-count"
+    );
+
+
+  if (main) {
+    main.textContent =
+      `${count} words`;
+  }
+
+
+  if (footer) {
+    footer.textContent =
+      `${count} words`;
+  }
+
+}
+
+
+function wordCount(text) {
+
+  return (
+    String(text || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .length
+  );
+
+}
+
+
+/* ==========================================================
+   HELPERS
+========================================================== */
+function extractChapterContent(body) {
+
+  if (!body) {
+    return "";
+  }
+
+  if (
+    typeof body === "object" &&
+    typeof body.html === "string"
+  ) {
+    return body.html;
+  }
+
+  if (
+    typeof body === "string"
+  ) {
+    return body;
+  }
+
+  return "";
+}
+
+function getActiveChapter() {
+
+  return studioState
+    .chapters[
+      studioState.activeChapter
+    ];
+
+}
+
+
+function renderChapterListOnly() {
+
+  const list =
+    document.getElementById(
+      "chapter-list"
+    );
+
+  if (!list) return;
+
+  list.innerHTML =
+    renderChapters();
+
+}
+
+
+function updateTransparency() {
+
+  const card =
+    document.querySelector(
+      ".transparency-card strong"
+    );
+
+  if (!card) return;
+
+
+  const method =
+    studioState.creationMethod;
+
+
+  card.textContent =
+    method === "human"
+      ? "Human created"
+      : method === "ai_assisted"
+        ? "AI assisted"
+        : "AI generated";
+
+}
+
+
+function updateSaveStatus(
+  status
+) {
+
+  const element =
+    document.getElementById(
+      "save-status"
+    );
+
+  if (element) {
+    element.textContent =
+      status;
+  }
+
+}
+
+
+function showStudioError(
+  message
+) {
+
+  alert(
+    `MUSH Story Studio\n\n${message}`
+  );
+
+}
+
+
+function escapeHTML(
+  value
+) {
+
+  return String(
+    value ?? ""
+  )
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
+
+}
+
+
+function extractChapterContent(body) {
+
+  if (!body) {
+    return "";
+  }
+
+  // Current MUSH format
+  if (
+    typeof body === "object" &&
+    typeof body.html === "string"
+  ) {
+    return body.html;
+  }
+
+  // Graceful fallback for older data
+  if (
+    typeof body === "string"
+  ) {
+    return body;
+  }
+
+  return "";
+}
+function isUUID(value) {
+
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      .test(value)
+  );
+
+}
