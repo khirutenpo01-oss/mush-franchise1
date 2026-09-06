@@ -1,5 +1,8 @@
 import { supabase } from "./supabase.js";
-import { openStoryStudio } from "./story-studio.js";
+import {
+  openStoryStudio,
+  addLocalStoryMedia
+} from "./story-studio.js";
 
 const BUCKET = "mush-media";
 const app = document.getElementById("app");
@@ -453,118 +456,59 @@ function addStoryUploadButton() {
 
 
 async function insertStoryFiles(files) {
-
-  const editor =
-    document.getElementById(
-      "editor"
-    );
-
-  if (!editor) return;
-
   for (const file of files) {
-
     try {
+      /*
+       * Story media is now stored locally.
+       *
+       * Images/videos/files are placed into IndexedDB.
+       * Nothing is uploaded to Supabase until Publish.
+       */
 
       if (
-        file.type.startsWith("image/")
+        file.type.startsWith("image/") ||
+        file.type.startsWith("video/") ||
+        !/\.(txt|md|json|csv)$/i.test(file.name)
       ) {
+        await addLocalStoryMedia(file);
 
-        const url =
-          await uploadFile(
-            file,
-            "story-images"
-          );
-
-        editor.insertAdjacentHTML(
-          "beforeend",
-          `
-          <p>
-            <img
-              src="${url}"
-              alt="${escapeHTML(file.name)}"
-              style="max-width:100%;border-radius:12px"
-            />
-          </p>
-          `
+        toast(
+          `${file.name} added to your local draft.`
         );
 
+        continue;
       }
 
-      else if (
-        file.type.startsWith("video/")
-      ) {
 
-        const url =
-          await uploadFile(
-            file,
-            "story-videos"
-          );
+      /*
+       * Text-based files can safely be read directly
+       * because they do not need binary storage.
+       */
 
-        editor.insertAdjacentHTML(
-          "beforeend",
-          `
-          <p>
-            <video
-              src="${url}"
-              controls
-              style="max-width:100%;border-radius:12px"
-            ></video>
-          </p>
-          `
-        );
+      const editor =
+        document.getElementById("editor");
 
-      }
+      if (!editor) return;
 
-      else if (
-        /\.(txt|md|json|csv)$/i.test(
-          file.name
-        )
-      ) {
+      const text =
+        await file.text();
 
-        const text =
-          await file.text();
-
-        editor.insertAdjacentHTML(
-          "beforeend",
-          `
-          <p>
-            ${escapeHTML(text)
-              .replaceAll("\n","<br>")}
-          </p>
-          `
-        );
-
-      }
-
-      else {
-
-        const url =
-          await uploadFile(
-            file,
-            "story-files"
-          );
-
-        editor.insertAdjacentHTML(
-          "beforeend",
-          `
-          <p>
-            <a
-              href="${url}"
-              target="_blank"
-              rel="noopener"
-            >
-              ${escapeHTML(file.name)}
-            </a>
-          </p>
-          `
-        );
-
-      }
+      editor.insertAdjacentHTML(
+        "beforeend",
+        `
+        <p>
+          ${escapeHTML(text)
+            .replaceAll("\n", "<br>")}
+        </p>
+        `
+      );
 
       editor.dispatchEvent(
         new Event(
           "input",
-          { bubbles:true }
+          {
+            bubbles: true
+          }
         )
       );
 
@@ -572,19 +516,18 @@ async function insertStoryFiles(files) {
         `${file.name} added to your chapter.`
       );
 
-    }
-
-    catch(error) {
+    } catch (error) {
+      console.error(
+        "Story media error:",
+        error
+      );
 
       toast(
         error.message ||
-        "Upload failed."
+        "Could not add the file."
       );
-
     }
-
   }
-
 }
 
 
