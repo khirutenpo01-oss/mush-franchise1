@@ -332,35 +332,28 @@ function setAuthMode(mode) {
 ========================================================== */
 
 function openAuth(mode = "signup") {
-
   createAuthModal();
 
-  const modal =
-    document.getElementById(
-      "halo-auth-modal"
-    );
+  const modal = document.getElementById("halo-auth-modal");
 
+  if (!modal) return;
+
+  modal.style.display = "block";
+  modal.setAttribute("aria-hidden", "false");
   modal.classList.add("visible");
 
   setAuthMode(mode);
-
-  document
-    .getElementById("auth-email")
-    ?.focus();
+  document.getElementById("auth-email")?.focus();
 }
 
 
 function closeAuth() {
-
-  const modal =
-    document.getElementById(
-      "halo-auth-modal"
-    );
+  const modal = document.getElementById("halo-auth-modal");
 
   if (modal) {
-    modal.classList.remove(
-      "visible"
-    );
+    modal.classList.remove("visible");
+    modal.setAttribute("aria-hidden", "true");
+    modal.style.display = "none";
   }
 }
 
