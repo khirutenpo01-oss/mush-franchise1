@@ -44,12 +44,13 @@ function createAuthModal() {
       <div class="auth-modal">
 
         <button
-          class="auth-close"
-          id="auth-close"
-          aria-label="Close"
+           type="button"
+           class="auth-close"
+           id="auth-close"
+           aria-label="Close"
         >
-          ×
-        </button>
+        ×
+       </button>
 
         <div class="auth-brand">
 
