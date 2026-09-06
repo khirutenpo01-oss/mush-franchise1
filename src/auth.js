@@ -517,23 +517,14 @@ async function handleAuthSubmit(event) {
       }
 
 
-      const {
-        data,
-        error
-      } =
-        await supabase.auth.signUp({
-
-          email,
-
-          password,
-
-          options: {
-            data: {
-              username
-            }
-          }
-
-        });
+      const { data, error } = await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    data: { username },
+    emailRedirectTo: `${window.location.origin}/`
+  }
+});
 
 
       if (error) {
