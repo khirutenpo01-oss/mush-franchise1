@@ -571,23 +571,38 @@ async function handleAuthSubmit(event) {
 
       if (data.session) {
 
-        showMessage(
-          "Welcome back to MUSH.",
-          "success"
+  showMessage(
+    "Welcome back to MUSH.",
+    "success"
+  );
+
+  setTimeout(
+    () => {
+
+      closeAuth();
+
+      // Force the modal completely off-screen/hidden
+      const modal =
+        document.getElementById(
+          "halo-auth-modal"
         );
 
-        setTimeout(
-          () => {
-
-            closeAuth();
-
-            returnToRequestedPage();
-
-          },
-          700
+      if (modal) {
+        modal.classList.remove("visible");
+        modal.setAttribute(
+          "aria-hidden",
+          "true"
         );
-
+        modal.style.display = "none";
       }
+
+      returnToRequestedPage();
+
+    },
+    700
+  );
+
+}
 
     }
 
