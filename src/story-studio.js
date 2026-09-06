@@ -1,26 +1,17 @@
 import { supabase } from "./supabase.js";
-
-/*
-============================================================
-MUSH STORY STUDIO
-============================================================
-
-The first functional MUSH writing environment.
-
-Current capabilities:
-- Create story
-- Edit story
-- Create chapters
-- Autosave
-- Word count
-- AI disclosure
-- Preview
-- Publish
-============================================================
-*/
+import {
+  createDraftId,
+  getDraft,
+  saveDraft,
+  deleteDraft,
+  saveMedia,
+  getDraftMedia,
+  deleteDraftMedia
+} from "./local-draft-store.js";
 
 let studioState = {
   storyId: null,
+  isLocalDraft: true,
   title: "",
   description: "",
   creationMethod: "human",
@@ -33,219 +24,198 @@ let studioState = {
 
 
 /* ==========================================================
-   OPEN STUDIO
+   OPEN STORY STUDIO
 ========================================================== */
 
-export async function openStoryStudio(
-  existingStoryId = null
-) {
-
-  if (!supabase) {
-    showStudioError(
-      "Supabase is not configured."
-    );
-
-    return;
-  }
-
-
-  const {
-    data: {
-      user
-    }
-  } =
-    await supabase.auth.getUser();
-
+export async function openStoryStudio(existingStoryId = null) {
+  const user = await getUser();
 
   if (!user) {
-
     window.dispatchEvent(
-      new CustomEvent(
-        "mush:require-auth"
-      )
+      new CustomEvent("mush:require-auth", {
+        detail: {
+          destination: "studio"
+        }
+      })
     );
 
     return;
   }
 
-
   if (existingStoryId) {
-
-    await loadStory(
-      existingStoryId
-    );
-
+    await loadStory(existingStoryId);
   } else {
-
     createBlankStory();
-
   }
 
-
-  renderStudio();
+  renderStoryStudio();
 }
 
 
 /* ==========================================================
-   NEW STORY
+   USER
+========================================================== */
+
+async function getUser() {
+  if (!supabase) return null;
+
+  const {
+    data
+  } = await supabase.auth.getUser();
+
+  return data?.user || null;
+}
+
+
+/* ==========================================================
+   LOCAL STORY
 ========================================================== */
 
 function createBlankStory() {
-
   studioState = {
-
-    storyId: null,
-
+    storyId: createDraftId(),
+    isLocalDraft: true,
     title: "",
-
     description: "",
-
-    creationMethod:
-      "human",
-
+    creationMethod: "human",
     aiDisclosure: "",
-
     chapters: [
       {
         id: crypto.randomUUID(),
-
         title: "Chapter 1",
-
         content: ""
       }
     ],
-
     activeChapter: 0,
-
     saving: false,
-
     lastSaved: null
-
   };
 
+  saveLocalDraft();
+}
+
+
+function saveLocalDraft() {
+  const draft = {
+    id: studioState.storyId,
+    title: studioState.title,
+    description: studioState.description,
+    creationMethod: studioState.creationMethod,
+    aiDisclosure: studioState.aiDisclosure,
+    chapters: studioState.chapters,
+    activeChapter: studioState.activeChapter
+  };
+
+  saveDraft(draft);
+
+  studioState.lastSaved = new Date();
+
+  updateSaveStatus(
+    "Saved locally"
+  );
 }
 
 
 /* ==========================================================
-   LOAD STORY
+   LOAD EXISTING STORY
 ========================================================== */
 
-async function loadStory(
-  storyId
-) {
+async function loadStory(storyId) {
+  const localDraft = getDraft(storyId);
+
+  if (localDraft) {
+    studioState = {
+      ...studioState,
+      ...localDraft,
+      storyId,
+      isLocalDraft: true
+    };
+
+    return;
+  }
 
   const {
     data: story,
     error
-  } =
-    await supabase
-      .from("content")
-      .select("*")
-      .eq("id", storyId)
-      .maybeSingle();
+  } = await supabase
+    .from("content")
+    .select("*")
+    .eq("id", storyId)
+    .maybeSingle();
 
-
-  if (error) {
-
-    showStudioError(
-      error.message
-    );
-
-    return;
-  }
-
+  if (error) throw error;
 
   if (!story) {
-
-    showStudioError(
-      "Story not found."
+    throw new Error(
+      "Story could not be found."
     );
-
-    return;
   }
-
-
-  studioState.storyId =
-    story.id;
-
-  studioState.title =
-    story.title || "";
-
-  studioState.description =
-    story.description || "";
-
-  studioState.creationMethod =
-    story.creation_method ||
-    "human";
-
-  studioState.aiDisclosure =
-    story.ai_disclosure ||
-    "";
-
-
-  /*
-   * Content versions contain the
-   * actual written material.
-   */
 
   const {
-    data: versions
-  } =
-    await supabase
-      .from("content_versions")
-      .select("*")
-      .eq(
-        "content_id",
-        storyId
-      )
-      .order(
-        "created_at",
-        {
-          ascending: true
-        }
-      );
+    data: versions,
+    error: versionsError
+  } = await supabase
+    .from("content_versions")
+    .select("*")
+    .eq("content_id", storyId)
+    .order("version_number", {
+      ascending: true
+    });
 
+  if (versionsError)
+    throw versionsError;
 
-  if (
-    versions &&
-    versions.length
-  ) {
+  const chapters =
+    (versions || []).map(
+      (version, index) => ({
+        id:
+          version.id ||
+          crypto.randomUUID(),
 
-    studioState.chapters =
-      versions.map(
-        (version, index) => ({
-          id: version.id,
+        title:
+          version.chapter_title ||
+          `Chapter ${index + 1}`,
 
-          title:
-            version.title ||
-            `Chapter ${index + 1}`,
+        content:
+          version.body ||
+          version.content ||
+          ""
+      })
+    );
 
-          content:
-  extractChapterContent(
-    version.body
-  )
-        })
-      );
+  studioState = {
+    storyId,
+    isLocalDraft: false,
 
-  }
+    title:
+      story.title || "",
 
+    description:
+      story.description || "",
 
-  if (
-    !studioState.chapters.length
-  ) {
+    creationMethod:
+      story.creation_method ||
+      "human",
 
-    studioState.chapters = [
-      {
-        id: crypto.randomUUID(),
+    aiDisclosure:
+      story.ai_disclosure ||
+      "",
 
-        title: "Chapter 1",
+    chapters:
+      chapters.length
+        ? chapters
+        : [
+            {
+              id: crypto.randomUUID(),
+              title: "Chapter 1",
+              content: ""
+            }
+          ],
 
-        content: ""
-      }
-    ];
-
-  }
-
+    activeChapter: 0,
+    saving: false,
+    lastSaved: null
+  };
 }
 
 
@@ -253,76 +223,66 @@ async function loadStory(
    RENDER
 ========================================================== */
 
-function renderStudio() {
-
+function renderStoryStudio() {
   const app =
-    document.getElementById(
-      "app"
-    );
-
+    document.getElementById("app");
 
   if (!app) return;
 
-
   app.innerHTML = `
+    <section class="story-studio">
 
-    <div class="story-studio">
-
-      <header class="studio-header">
+      <div class="story-studio-header">
 
         <div>
 
           <button
-            class="studio-back"
+            type="button"
+            class="button ghost"
             id="studio-back"
           >
-            ← Back to MUSH
+            ← Back
           </button>
 
-        </div>
+          <div class="eyebrow">
+            STORY STUDIO
+          </div>
 
+          <h1>
+            Write your story
+          </h1>
 
-        <div class="studio-status">
-
-          <span
-            id="save-status"
-          >
+          <p id="studio-save-status">
             ${
-              studioState.lastSaved
-                ? "Saved"
-                : "Not saved"
+              studioState.isLocalDraft
+                ? "Saved locally"
+                : "Loaded from MUSH"
             }
-          </span>
-
-          <span>
-            •
-          </span>
-
-          <span id="word-count">
-            0 words
-          </span>
+          </p>
 
         </div>
 
-
-        <div class="studio-actions">
+        <div class="story-studio-actions">
 
           <button
-            class="studio-preview"
+            type="button"
+            class="button ghost"
             id="preview-story"
           >
             Preview
           </button>
 
           <button
-            class="studio-save"
+            type="button"
+            class="button ghost"
             id="save-story"
           >
             Save Draft
           </button>
 
           <button
-            class="studio-publish"
+            type="button"
+            class="button purple"
             id="publish-story"
           >
             Publish
@@ -330,170 +290,81 @@ function renderStudio() {
 
         </div>
 
-      </header>
+      </div>
 
 
-      <div class="studio-layout">
+      <div class="story-studio-grid">
+
+        <aside class="story-sidebar">
+
+          <label>
+            Novel / Story name
+
+            <input
+              id="story-title"
+              maxlength="160"
+              value="${escapeHTML(
+                studioState.title
+              )}"
+              placeholder="Your story title"
+            />
+
+          </label>
 
 
-        <!-- LEFT SIDEBAR -->
+          <div class="story-word-count">
 
-        <aside class="chapter-sidebar">
+            <strong id="word-count">
+              ${wordCount()}
+            </strong>
 
-          <div class="chapter-heading">
-
-            <span>
-              STORY
-            </span>
-
-            <button
-              id="add-chapter"
-            >
-              ＋
-            </button>
+            words
 
           </div>
 
 
-          <input
-            id="story-title"
-            class="story-title-input"
-            placeholder="Untitled Story"
-            value="${escapeHTML(
-              studioState.title
-            )}"
-          />
+          <h3>
+            Chapters
+          </h3>
 
+          <div id="chapter-list">
+            ${renderChapterList()}
+          </div>
 
-          <div
-            id="chapter-list"
-            class="chapter-list"
+          <button
+            type="button"
+            class="button ghost"
+            id="add-chapter"
           >
-
-            ${renderChapters()}
-
-          </div>
-
-
-          <div class="studio-meta">
-
-            <span>
-              CREATION METHOD
-            </span>
-
-            <select
-              id="creation-method"
-            >
-
-              <option
-                value="human"
-                ${
-                  studioState.creationMethod ===
-                  "human"
-                    ? "selected"
-                    : ""
-                }
-              >
-                Human
-              </option>
-
-              <option
-                value="ai_assisted"
-                ${
-                  studioState.creationMethod ===
-                  "ai_assisted"
-                    ? "selected"
-                    : ""
-                }
-              >
-                AI Assisted
-              </option>
-
-              <option
-                value="ai_generated"
-                ${
-                  studioState.creationMethod ===
-                  "ai_generated"
-                    ? "selected"
-                    : ""
-                }
-              >
-                AI Generated
-              </option>
-
-            </select>
-
-
-            <textarea
-              id="ai-disclosure"
-              placeholder="Optional AI disclosure..."
-            >${escapeHTML(
-              studioState.aiDisclosure
-            )}</textarea>
-
-          </div>
+            ＋ Add Chapter
+          </button>
 
         </aside>
 
 
-        <!-- EDITOR -->
-
         <main class="story-editor">
-
-          <div class="editor-title">
-
-            <input
-              id="chapter-title"
-              value="${escapeHTML(
-                studioState
-                  .chapters[
-                    studioState.activeChapter
-                  ]?.title ||
-                  "Chapter 1"
-              )}"
-              placeholder="Chapter title"
-            />
-
-          </div>
-
 
           <div class="editor-toolbar">
 
             <button
+              type="button"
               data-command="bold"
-              title="Bold"
             >
-              B
+              <strong>B</strong>
             </button>
 
             <button
+              type="button"
               data-command="italic"
-              title="Italic"
             >
-              I
+              <em>I</em>
             </button>
 
             <button
+              type="button"
               data-command="underline"
-              title="Underline"
             >
-              U
-            </button>
-
-            <span></span>
-
-            <button
-              data-command="formatBlock"
-              data-value="h2"
-            >
-              H2
-            </button>
-
-            <button
-              data-command="formatBlock"
-              data-value="blockquote"
-            >
-              ❝
+              <u>U</u>
             </button>
 
           </div>
@@ -501,128 +372,102 @@ function renderStudio() {
 
           <div
             id="editor"
-            class="editor"
+            class="story-editor-content"
             contenteditable="true"
             spellcheck="true"
-            data-placeholder="Begin your story..."
           >
-            ${
-              studioState
-                .chapters[
-                  studioState.activeChapter
-                ]?.content || ""
-            }
+            ${getActiveChapter().content}
           </div>
 
 
-          <div class="editor-footer">
+          <div class="story-editor-settings">
 
-            <span id="editor-word-count">
-              0 words
-            </span>
+            <label>
 
-            <span>
-              MUSH STORY STUDIO
-            </span>
+              Description
+
+              <textarea
+                id="story-description"
+                rows="5"
+                placeholder="Describe your story..."
+              >${escapeHTML(
+                studioState.description
+              )}</textarea>
+
+            </label>
+
+
+            <label>
+
+              Creation method
+
+              <select id="creation-method">
+
+                <option
+                  value="human"
+                  ${
+                    studioState.creationMethod ===
+                    "human"
+                      ? "selected"
+                      : ""
+                  }
+                >
+                  Human created
+                </option>
+
+                <option
+                  value="ai_assisted"
+                  ${
+                    studioState.creationMethod ===
+                    "ai_assisted"
+                      ? "selected"
+                      : ""
+                  }
+                >
+                  AI assisted
+                </option>
+
+                <option
+                  value="ai_generated"
+                  ${
+                    studioState.creationMethod ===
+                    "ai_generated"
+                      ? "selected"
+                      : ""
+                  }
+                >
+                  AI generated
+                </option>
+
+              </select>
+
+            </label>
+
+
+            <label>
+
+              AI disclosure
+
+              <textarea
+                id="ai-disclosure"
+                rows="4"
+                placeholder="Describe how AI was used, if applicable..."
+              >${escapeHTML(
+                studioState.aiDisclosure
+              )}</textarea>
+
+            </label>
 
           </div>
 
         </main>
 
-
-        <!-- RIGHT PANEL -->
-
-        <aside class="story-settings">
-
-          <div class="settings-heading">
-            STORY DETAILS
-          </div>
-
-
-          <label>
-            Description
-          </label>
-
-          <textarea
-            id="story-description"
-            placeholder="Tell readers what this story is about..."
-          >${escapeHTML(
-            studioState.description
-          )}</textarea>
-
-
-          <div class="setting-divider"></div>
-
-
-          <div class="settings-heading">
-            CONTENT TRANSPARENCY
-          </div>
-
-
-          <div class="transparency-card">
-
-            <strong>
-              ${
-                studioState.creationMethod ===
-                "human"
-                  ? "Human created"
-                  : studioState.creationMethod ===
-                    "ai_assisted"
-                    ? "AI assisted"
-                    : "AI generated"
-              }
-            </strong>
-
-            <p>
-              MUSH requires creators to identify
-              how their content was made.
-            </p>
-
-          </div>
-
-
-          <div class="setting-divider"></div>
-
-
-          <div class="settings-heading">
-            PUBLICATION
-          </div>
-
-
-          <label class="toggle-row">
-
-            <span>
-              Public
-            </span>
-
-            <input
-              type="checkbox"
-              id="public-toggle"
-              checked
-            />
-
-          </label>
-
-
-          <div class="publication-note">
-
-            You control when your work becomes
-            part of the public MUSH archive.
-
-          </div>
-
-        </aside>
-
       </div>
 
-    </div>
+    </section>
   `;
 
-
   attachStudioEvents();
-
-  updateWordCount();
-
 }
 
 
@@ -630,49 +475,26 @@ function renderStudio() {
    CHAPTER LIST
 ========================================================== */
 
-function renderChapters() {
-
-  return studioState
-    .chapters
+function renderChapterList() {
+  return studioState.chapters
     .map(
       (chapter, index) => `
-
         <button
-          class="
-            chapter-item
-            ${
-              index ===
-              studioState.activeChapter
-                ? "active"
-                : ""
-            }
-          "
+          type="button"
+          class="chapter-item ${
+            index === studioState.activeChapter
+              ? "active"
+              : ""
+          }"
           data-chapter="${index}"
         >
-
           <span>
-            ${index + 1}
+            ${escapeHTML(
+              chapter.title ||
+              `Chapter ${index + 1}`
+            )}
           </span>
-
-          <div>
-
-            <strong>
-              ${escapeHTML(
-                chapter.title ||
-                `Chapter ${index + 1}`
-              )}
-            </strong>
-
-            <small>
-              ${wordCount(
-                chapter.content
-              )} words
-            </small>
-
-          </div>
-
         </button>
-
       `
     )
     .join("");
@@ -684,15 +506,33 @@ function renderChapters() {
 ========================================================== */
 
 function attachStudioEvents() {
+  const editor =
+    document.getElementById("editor");
+
+  const title =
+    document.getElementById("story-title");
+
+  const description =
+    document.getElementById(
+      "story-description"
+    );
+
+  const creationMethod =
+    document.getElementById(
+      "creation-method"
+    );
+
+  const aiDisclosure =
+    document.getElementById(
+      "ai-disclosure"
+    );
+
 
   document
-    .getElementById(
-      "studio-back"
-    )
+    .getElementById("studio-back")
     ?.addEventListener(
       "click",
       () => {
-
         window.dispatchEvent(
           new CustomEvent(
             "mush:navigate",
@@ -703,127 +543,65 @@ function attachStudioEvents() {
             }
           )
         );
-
       }
     );
 
 
-  document
-    .getElementById(
-      "story-title"
-    )
-    ?.addEventListener(
-      "input",
-      event => {
+  title?.addEventListener(
+    "input",
+    () => {
+      studioState.title =
+        title.value;
 
-        studioState.title =
-          event.target.value;
-
-        queueAutosave();
-
-      }
-    );
+      queueAutosave();
+    }
+  );
 
 
-  document
-    .getElementById(
-      "story-description"
-    )
-    ?.addEventListener(
-      "input",
-      event => {
+  description?.addEventListener(
+    "input",
+    () => {
+      studioState.description =
+        description.value;
 
-        studioState.description =
-          event.target.value;
-
-        queueAutosave();
-
-      }
-    );
+      queueAutosave();
+    }
+  );
 
 
-  document
-    .getElementById(
-      "creation-method"
-    )
-    ?.addEventListener(
-      "change",
-      event => {
+  creationMethod?.addEventListener(
+    "change",
+    () => {
+      studioState.creationMethod =
+        creationMethod.value;
 
-        studioState.creationMethod =
-          event.target.value;
-
-        queueAutosave();
-
-        updateTransparency();
-
-      }
-    );
+      queueAutosave();
+    }
+  );
 
 
-  document
-    .getElementById(
-      "ai-disclosure"
-    )
-    ?.addEventListener(
-      "input",
-      event => {
+  aiDisclosure?.addEventListener(
+    "input",
+    () => {
+      studioState.aiDisclosure =
+        aiDisclosure.value;
 
-        studioState.aiDisclosure =
-          event.target.value;
-
-        queueAutosave();
-
-      }
-    );
+      queueAutosave();
+    }
+  );
 
 
-  document
-    .getElementById(
-      "chapter-title"
-    )
-    ?.addEventListener(
-      "input",
-      event => {
+  editor?.addEventListener(
+    "input",
+    () => {
+      getActiveChapter().content =
+        editor.innerHTML;
 
-        const chapter =
-          getActiveChapter();
+      updateWordCount();
 
-        if (!chapter) return;
-
-        chapter.title =
-          event.target.value;
-
-        queueAutosave();
-
-        renderChapterListOnly();
-
-      }
-    );
-
-
-  document
-    .getElementById(
-      "editor"
-    )
-    ?.addEventListener(
-      "input",
-      event => {
-
-        const chapter =
-          getActiveChapter();
-
-        if (!chapter) return;
-
-        chapter.content =
-          event.target.innerHTML;
-
-        updateWordCount();
-
-        queueAutosave();
-
-      }
-    );
+      queueAutosave();
+    }
+  );
 
 
   document
@@ -839,37 +617,18 @@ function attachStudioEvents() {
           const command =
             button.dataset.command;
 
-          const value =
-            button.dataset.value ||
-            null;
+          document.execCommand(
+            command,
+            false,
+            null
+          );
 
-          document
-            .execCommand(
-              command,
-              false,
-              value
-            );
-
-          document
-            .getElementById(
-              "editor"
-            )
-            ?.focus();
+          editor?.focus();
 
         }
       );
 
     });
-
-
-  document
-    .getElementById(
-      "add-chapter"
-    )
-    ?.addEventListener(
-      "click",
-      addChapter
-    );
 
 
   document
@@ -882,14 +641,14 @@ function attachStudioEvents() {
         "click",
         () => {
 
-          saveActiveEditorToState();
+          saveCurrentEditor();
 
           studioState.activeChapter =
             Number(
               button.dataset.chapter
             );
 
-          renderStudio();
+          renderStoryStudio();
 
         }
       );
@@ -898,118 +657,183 @@ function attachStudioEvents() {
 
 
   document
-    .getElementById(
-      "save-story"
-    )
+    .getElementById("add-chapter")
     ?.addEventListener(
       "click",
-      () => saveStory()
+      addChapter
     );
 
 
   document
-    .getElementById(
-      "preview-story"
-    )
+    .getElementById("save-story")
+    ?.addEventListener(
+      "click",
+      async () => {
+        saveCurrentEditor();
+        saveLocalDraft();
+        toast(
+          "Draft saved locally."
+        );
+      }
+    );
+
+
+  document
+    .getElementById("publish-story")
+    ?.addEventListener(
+      "click",
+      publishStory
+    );
+
+
+  document
+    .getElementById("preview-story")
     ?.addEventListener(
       "click",
       previewStory
     );
 
 
-  document
-    .getElementById(
-      "publish-story"
-    )
-    ?.addEventListener(
-      "click",
-      publishStory
-    );
-
+  updateWordCount();
 }
+
+
+/* ==========================================================
+   AUTOSAVE
+========================================================== */
+
+let autosaveTimer = null;
+
+function queueAutosave() {
+  clearTimeout(autosaveTimer);
+
+  updateSaveStatus(
+    "Unsaved changes"
+  );
+
+  autosaveTimer =
+    setTimeout(
+      () => {
+
+        saveCurrentEditor();
+        saveLocalDraft();
+
+      },
+      800
+    );
+}
+
 
 /* ==========================================================
    CHAPTERS
 ========================================================== */
 
 function addChapter() {
-
-  saveActiveEditorToState();
-
-  const number =
-    studioState.chapters.length + 1;
+  saveCurrentEditor();
 
   studioState.chapters.push({
-
     id: crypto.randomUUID(),
-
     title:
-      `Chapter ${number}`,
-
-    content:
-      ""
-
+      `Chapter ${
+        studioState.chapters.length + 1
+      }`,
+    content: ""
   });
 
   studioState.activeChapter =
     studioState.chapters.length - 1;
 
-  renderStudio();
+  saveLocalDraft();
 
+  renderStoryStudio();
+}
+
+
+function saveCurrentEditor() {
+  const editor =
+    document.getElementById("editor");
+
+  if (!editor) return;
+
+  getActiveChapter().content =
+    editor.innerHTML;
+}
+
+
+function getActiveChapter() {
+  return (
+    studioState.chapters[
+      studioState.activeChapter
+    ] ||
+    studioState.chapters[0]
+  );
 }
 
 
 /* ==========================================================
-   SAVE EDITOR
+   WORD COUNT
 ========================================================== */
 
-function saveActiveEditorToState() {
+function wordCount() {
+  const text =
+    studioState.chapters
+      .map(chapter =>
+        htmlToText(chapter.content)
+      )
+      .join(" ");
 
-  const editor =
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .length;
+}
+
+
+function updateWordCount() {
+  const element =
     document.getElementById(
-      "editor"
+      "word-count"
     );
 
-  const chapter =
-    getActiveChapter();
-
-
-  if (
-    editor &&
-    chapter
-  ) {
-
-    chapter.content =
-      editor.innerHTML;
-
+  if (element) {
+    element.textContent =
+      wordCount();
   }
-
 }
 
 
 /* ==========================================================
-   SAVE STORY
+   PUBLISH
 ========================================================== */
 
-export async function saveStory() {
+async function publishStory() {
+  saveCurrentEditor();
 
-  if (
-    studioState.saving
-  ) {
+  if (!studioState.title.trim()) {
+    toast(
+      "Please give your story a title."
+    );
+
     return;
   }
 
+  if (
+    studioState.creationMethod !==
+      "human" &&
+    !studioState.aiDisclosure.trim()
+  ) {
+    toast(
+      "Please provide the required AI disclosure."
+    );
 
-  const {
-    data: {
-      user
-    }
-  } =
-    await supabase.auth.getUser();
+    return;
+  }
 
+  const user =
+    await getUser();
 
   if (!user) {
-
     window.dispatchEvent(
       new CustomEvent(
         "mush:require-auth"
@@ -1019,28 +843,65 @@ export async function saveStory() {
     return;
   }
 
-
-  saveActiveEditorToState();
-
-  studioState.saving = true;
-
-  updateSaveStatus(
-    "Saving..."
-  );
-
-
   try {
+    studioState.saving = true;
 
-    let storyId =
-      studioState.storyId;
+    updateSaveStatus(
+      "Publishing..."
+    );
 
 
     /*
-     * Create the content record
-     * if this is a new story.
+     * Upload local media first.
      */
 
-    if (!storyId) {
+    const media =
+      studioState.isLocalDraft
+        ? await getDraftMedia(
+            studioState.storyId
+          )
+        : [];
+
+
+    const mediaMap =
+      new Map();
+
+
+    for (const item of media) {
+
+      const file =
+        item.file;
+
+      const folder =
+        file.type.startsWith("image/")
+          ? "story-images"
+          : file.type.startsWith("video/")
+            ? "story-videos"
+            : "story-files";
+
+      const url =
+        await uploadFile(
+          file,
+          folder,
+          user
+        );
+
+      mediaMap.set(
+        item.id,
+        url
+      );
+    }
+
+
+    /*
+     * Create or update the content record.
+     */
+
+    let contentId =
+      studioState.storyId;
+
+
+    if (studioState.isLocalDraft) {
 
       const {
         data,
@@ -1049,41 +910,38 @@ export async function saveStory() {
         await supabase
           .from("content")
           .insert({
+            content_type:
+              "novel",
 
             title:
-              studioState.title ||
-              "Untitled Story",
+              studioState.title.trim(),
 
             description:
-              studioState.description,
+              studioState.description.trim(),
+
+            creator_id:
+              user.id,
+
+            status:
+              "published",
+
+            open_user_mode:
+              false,
 
             creation_method:
               studioState.creationMethod,
 
             ai_disclosure:
-              studioState.aiDisclosure,
-
-            content_type:
-              "novel",
-
-            creator_id:
-              user.id
-
+              studioState.aiDisclosure.trim()
           })
-          .select()
+          .select("id")
           .single();
 
-
-      if (error) {
+      if (error)
         throw error;
-      }
 
-
-      storyId =
+      contentId =
         data.id;
-
-      studioState.storyId =
-        storyId;
 
     } else {
 
@@ -1095,28 +953,28 @@ export async function saveStory() {
           .update({
 
             title:
-              studioState.title ||
-              "Untitled Story",
+              studioState.title.trim(),
 
             description:
-              studioState.description,
+              studioState.description.trim(),
 
             creation_method:
               studioState.creationMethod,
 
             ai_disclosure:
-              studioState.aiDisclosure
+              studioState.aiDisclosure.trim(),
+
+            status:
+              "published"
 
           })
           .eq(
             "id",
-            storyId
+            contentId
           );
 
-
-      if (error) {
+      if (error)
         throw error;
-      }
 
     }
 
@@ -1126,201 +984,342 @@ export async function saveStory() {
      */
 
     for (
-      let i = 0;
-      i < studioState.chapters.length;
-      i++
+      let index = 0;
+      index <
+      studioState.chapters.length;
+      index++
     ) {
 
       const chapter =
-        studioState.chapters[i];
+        studioState.chapters[index];
 
-
-            const {
+      const {
         error
       } =
         await supabase
           .from("content_versions")
-          .upsert({
+          .upsert(
+            {
+              content_id:
+                contentId,
 
-            id:
-              isUUID(chapter.id)
-                ? chapter.id
-                : undefined,
+              version_number:
+                index + 1,
 
-            content_id:
-              storyId,
+              chapter_title:
+                chapter.title,
 
-            title:
-              chapter.title ||
-              `Chapter ${i + 1}`,
-
-            body: {
-              html:
-                chapter.content
+              body:
+                replaceLocalMedia(
+                  chapter.content,
+                  mediaMap
+                )
             },
+            {
+              onConflict:
+                "content_id,version_number"
+            }
+          );
 
-            created_by:
-              user.id,
-
-            version_number:
-              i + 1
-
-          });
-
-
-      if (error) {
+      if (error)
         throw error;
-      }
 
     }
 
 
-    studioState.lastSaved =
-      new Date();
+    /*
+     * Delete the local copy only after
+     * every Supabase operation succeeded.
+     */
+
+    if (studioState.isLocalDraft) {
+
+      await deleteDraftMedia(
+        studioState.storyId
+      );
+
+      deleteDraft(
+        studioState.storyId
+      );
+
+    }
 
 
-    updateSaveStatus(
-      "Saved"
-    );
+    studioState.storyId =
+      contentId;
 
-
-  } catch (error) {
-
-    console.error(
-      "MUSH Story Studio save error:",
-      error
-    );
-
-    updateSaveStatus(
-      "Save failed"
-    );
-
-    showStudioError(
-      error.message
-    );
-
-  } finally {
+    studioState.isLocalDraft =
+      false;
 
     studioState.saving =
       false;
 
+    updateSaveStatus(
+      "Published successfully"
+    );
+
+    toast(
+      "Your story has been published."
+    );
+
   }
 
+  catch(error) {
+
+    studioState.saving =
+      false;
+
+    updateSaveStatus(
+      "Saved locally — publish failed"
+    );
+
+    toast(
+      error.message ||
+      "Publishing failed. Your local draft is safe."
+    );
+
+    /*
+     * Deliberately do NOT delete the local draft.
+     */
+
+    saveLocalDraft();
+
+  }
 }
 
 
 /* ==========================================================
-   AUTOSAVE
+   LOCAL MEDIA
 ========================================================== */
 
-let autosaveTimer = null;
+export async function addLocalStoryMedia(
+  file
+) {
+  if (!studioState.isLocalDraft) {
+    throw new Error(
+      "This story is already published."
+    );
+  }
 
-
-function queueAutosave() {
-
-  clearTimeout(
-    autosaveTimer
-  );
-
-
-  updateSaveStatus(
-    "Unsaved changes"
-  );
-
-
-  autosaveTimer =
-    setTimeout(
-      () => {
-
-        saveStory();
-
-      },
-      1800
+  const mediaId =
+    await saveMedia(
+      studioState.storyId,
+      file
     );
 
+  const editor =
+    document.getElementById("editor");
+
+  if (!editor)
+    return mediaId;
+
+  if (
+    file.type.startsWith("image/")
+  ) {
+
+    const objectUrl =
+      URL.createObjectURL(file);
+
+    editor.insertAdjacentHTML(
+      "beforeend",
+      `
+      <p>
+        <img
+          src="${objectUrl}"
+          data-local-media-id="${mediaId}"
+          alt="${escapeHTML(file.name)}"
+          style="max-width:100%;border-radius:12px"
+        />
+      </p>
+      `
+    );
+
+  }
+
+  else if (
+    file.type.startsWith("video/")
+  ) {
+
+    const objectUrl =
+      URL.createObjectURL(file);
+
+    editor.insertAdjacentHTML(
+      "beforeend",
+      `
+      <p>
+        <video
+          src="${objectUrl}"
+          data-local-media-id="${mediaId}"
+          controls
+          style="max-width:100%;border-radius:12px"
+        ></video>
+      </p>
+      `
+    );
+
+  }
+
+  else {
+
+    editor.insertAdjacentHTML(
+      "beforeend",
+      `
+      <p>
+        <span
+          data-local-media-id="${mediaId}"
+        >
+          📎 ${escapeHTML(file.name)}
+        </span>
+      </p>
+      `
+    );
+
+  }
+
+  editor.dispatchEvent(
+    new Event(
+      "input",
+      {
+        bubbles: true
+      }
+    )
+  );
+
+  return mediaId;
 }
 
 
 /* ==========================================================
-   PUBLISH
+   MEDIA UPLOAD
 ========================================================== */
 
-async function publishStory() {
-
-  saveActiveEditorToState();
-
-
-  if (
-    !studioState.title.trim()
-  ) {
-
-    showStudioError(
-      "Give your story a title before publishing."
+async function uploadFile(
+  file,
+  folder,
+  user
+) {
+  const cleanName =
+    file.name.replace(
+      /[^a-zA-Z0-9._-]/g,
+      "_"
     );
 
-    return;
-  }
-
-
-  if (
-    studioState.creationMethod !==
-      "human" &&
-    !studioState.aiDisclosure.trim()
-  ) {
-
-    showStudioError(
-      "Please add an AI disclosure before publishing AI-assisted or AI-generated content."
-    );
-
-    return;
-  }
-
-
-  await saveStory();
-
-
-  if (
-    !studioState.storyId
-  ) {
-    return;
-  }
-
+  const path =
+    `${user.id}/${folder}/${crypto.randomUUID()}-${cleanName}`;
 
   const {
     error
   } =
-    await supabase
-      .from("content")
-      .update({
-        status: "published",
-        published_at:
-          new Date().toISOString()
-      })
-      .eq(
-        "id",
-        studioState.storyId
+    await supabase.storage
+      .from("mush-media")
+      .upload(
+        path,
+        file,
+        {
+          contentType:
+            file.type ||
+            "application/octet-stream",
+
+          upsert:
+            false
+        }
       );
 
+  if (error)
+    throw error;
 
-  if (error) {
+  const {
+    data
+  } =
+    supabase.storage
+      .from("mush-media")
+      .getPublicUrl(path);
 
-    showStudioError(
-      error.message
-    );
-
-    return;
-  }
-
-
-  updateSaveStatus(
-    "Published"
-  );
+  return data.publicUrl;
+}
 
 
-  alert(
-    "Your story has been published to MUSH."
-  );
+/* ==========================================================
+   MEDIA REPLACEMENT
+========================================================== */
 
+function replaceLocalMedia(
+  html,
+  mediaMap
+) {
+  const container =
+    document.createElement("div");
+
+  container.innerHTML =
+    html || "";
+
+  container
+    .querySelectorAll(
+      "[data-local-media-id]"
+    )
+    .forEach(element => {
+
+      const id =
+        element.dataset
+          .localMediaId;
+
+      const url =
+        mediaMap.get(id);
+
+      if (!url) return;
+
+      if (
+        element.tagName ===
+        "IMG"
+      ) {
+
+        element.src =
+          url;
+
+      }
+
+      else if (
+        element.tagName ===
+        "VIDEO"
+      ) {
+
+        element.src =
+          url;
+
+      }
+
+      else {
+
+        const link =
+          document.createElement(
+            "a"
+          );
+
+        link.href =
+          url;
+
+        link.target =
+          "_blank";
+
+        link.rel =
+          "noopener";
+
+        link.textContent =
+          element.textContent;
+
+        element.replaceWith(
+          link
+        );
+
+      }
+
+      element.removeAttribute(
+        "data-local-media-id"
+      );
+
+    });
+
+  return container.innerHTML;
 }
 
 
@@ -1329,155 +1328,106 @@ async function publishStory() {
 ========================================================== */
 
 function previewStory() {
-
-  saveActiveEditorToState();
-
-
-  const chapter =
-    getActiveChapter();
-
+  saveCurrentEditor();
 
   const overlay =
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
   overlay.className =
-    "story-preview-overlay";
-
+    "mush-modal-backdrop";
 
   overlay.innerHTML = `
+    <div
+      class="mush-modal"
+      style="width:min(900px,100%)"
+    >
 
-    <div class="story-preview">
-
-      <button
-        class="preview-close"
-        id="preview-close"
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          gap:20px;
+          align-items:center;
+        "
       >
-        ×
-      </button>
 
+        <h2>
+          ${escapeHTML(
+            studioState.title ||
+            "Untitled Story"
+          )}
+        </h2>
 
-      <div class="preview-label">
-        MUSH PREVIEW
+        <button
+          type="button"
+          class="mush-secondary"
+          id="close-preview"
+        >
+          Close
+        </button>
+
       </div>
 
+      <div
+        style="margin-top:20px;line-height:1.8"
+      >
 
-      <h1>
-        ${escapeHTML(
-          studioState.title ||
-          "Untitled Story"
-        )}
-      </h1>
+        ${studioState.chapters
+          .map(
+            chapter => `
+              <article>
 
+                <h3>
+                  ${escapeHTML(
+                    chapter.title
+                  )}
+                </h3>
 
-      <p class="preview-description">
-        ${escapeHTML(
-          studioState.description
-        )}
-      </p>
+                <div>
+                  ${chapter.content}
+                </div>
 
+              </article>
+            `
+          )
+          .join("")}
 
-      <div class="preview-divider"></div>
-
-
-      <h2>
-        ${escapeHTML(
-          chapter?.title ||
-          "Chapter 1"
-        )}
-      </h2>
-
-
-      <article class="preview-body">
-
-        ${
-          chapter?.content ||
-          "<p>Your story is empty.</p>"
-        }
-
-      </article>
+      </div>
 
     </div>
-
   `;
-
 
   document.body.appendChild(
     overlay
   );
 
-
-  document
-    .getElementById(
-      "preview-close"
+  overlay
+    .querySelector(
+      "#close-preview"
     )
-    .addEventListener(
+    ?.addEventListener(
       "click",
-      () => {
-        overlay.remove();
-      }
+      () => overlay.remove()
     );
-
 }
 
 
 /* ==========================================================
-   WORD COUNT
+   STATUS
 ========================================================== */
 
-function updateWordCount() {
-
-  const editor =
+function updateSaveStatus(
+  message
+) {
+  const element =
     document.getElementById(
-      "editor"
+      "studio-save-status"
     );
 
-
-  if (!editor) return;
-
-
-  const count =
-    wordCount(
-      editor.innerText
-    );
-
-
-  const main =
-    document.getElementById(
-      "word-count"
-    );
-
-  const footer =
-    document.getElementById(
-      "editor-word-count"
-    );
-
-
-  if (main) {
-    main.textContent =
-      `${count} words`;
+  if (element) {
+    element.textContent =
+      message;
   }
-
-
-  if (footer) {
-    footer.textContent =
-      `${count} words`;
-  }
-
-}
-
-
-function wordCount(text) {
-
-  return (
-    String(text || "")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .length
-  );
-
 }
 
 
@@ -1485,90 +1435,27 @@ function wordCount(text) {
    HELPERS
 ========================================================== */
 
-function getActiveChapter() {
-
-  return studioState
-    .chapters[
-      studioState.activeChapter
-    ];
-
-}
-
-
-function renderChapterListOnly() {
-
-  const list =
-    document.getElementById(
-      "chapter-list"
-    );
-
-  if (!list) return;
-
-  list.innerHTML =
-    renderChapters();
-
-}
-
-
-function updateTransparency() {
-
-  const card =
-    document.querySelector(
-      ".transparency-card strong"
-    );
-
-  if (!card) return;
-
-
-  const method =
-    studioState.creationMethod;
-
-
-  card.textContent =
-    method === "human"
-      ? "Human created"
-      : method === "ai_assisted"
-        ? "AI assisted"
-        : "AI generated";
-
-}
-
-
-function updateSaveStatus(
-  status
+function htmlToText(
+  html
 ) {
-
   const element =
-    document.getElementById(
-      "save-status"
+    document.createElement(
+      "div"
     );
 
-  if (element) {
-    element.textContent =
-      status;
-  }
+  element.innerHTML =
+    html || "";
 
-}
-
-
-function showStudioError(
-  message
-) {
-
-  alert(
-    `MUSH Story Studio\n\n${message}`
-  );
-
+  return element.textContent ||
+    element.innerText ||
+    "";
 }
 
 
 function escapeHTML(
-  value
+  value = ""
 ) {
-
-  return String(
-    value ?? ""
-  )
+  return String(value)
     .replaceAll(
       "&",
       "&amp;"
@@ -1589,39 +1476,48 @@ function escapeHTML(
       "'",
       "&#039;"
     );
-
 }
 
 
-function extractChapterContent(body) {
+function toast(
+  message
+) {
+  const old =
+    document.getElementById(
+      "mush-toast"
+    );
 
-  if (!body) {
-    return "";
-  }
+  old?.remove();
 
-  // Current MUSH format
-  if (
-    typeof body === "object" &&
-    typeof body.html === "string"
-  ) {
-    return body.html;
-  }
+  const element =
+    document.createElement(
+      "div"
+    );
 
-  // Graceful fallback for older data
-  if (
-    typeof body === "string"
-  ) {
-    return body;
-  }
+  element.id =
+    "mush-toast";
 
-  return "";
-}
-function isUUID(value) {
+  element.textContent =
+    message;
 
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      .test(value)
+  element.style.cssText = `
+    position:fixed;
+    right:20px;
+    bottom:20px;
+    z-index:11000;
+    padding:14px 18px;
+    border-radius:12px;
+    background:#34246f;
+    color:white;
+    box-shadow:0 15px 40px rgba(0,0,0,.4);
+  `;
+
+  document.body.appendChild(
+    element
   );
 
+  setTimeout(
+    () => element.remove(),
+    3500
+  );
 }
